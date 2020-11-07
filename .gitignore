@@ -1,0 +1,6 @@
+/bazel-bin
+/bazel-fantasma
+/bazel-out
+/bazel-testlogs
+
+*.swp
