@@ -148,13 +148,27 @@ void main() {
   vec2 sprite_position_uv = vec2(
     (display_sprite_grid_indices.x + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_width}.0,
     (display_sprite_grid_indices.y + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_height}.0);
-  vec4 sprite_position = floor(vec4(0.5,0.5,0.5,0.5) + 255.0 * texture2DLod(sprite_data_texture, sprite_position_uv, 0.0));
+  vec2 sprite_direction_uv = vec2(
+    (display_sprite_grid_indices.x + 1.5/${sprite_data_point_size}.0) / ${sprite_data_grid_width}.0,
+    (display_sprite_grid_indices.y + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_height}.0);
+  vec2 sprite_score_uv = vec2(
+    (display_sprite_grid_indices.x + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_width}.0,
+    (display_sprite_grid_indices.y + 1.5/${sprite_data_point_size}.0) / ${sprite_data_grid_height}.0);
+
+  vec4 sprite_position = texture2DLod(sprite_data_texture, sprite_position_uv, 0.0);
+  vec4 sprite_direction = texture2DLod(sprite_data_texture, sprite_direction_uv, 0.0);
+  vec4 sprite_score = texture2DLod(sprite_data_texture, sprite_score_uv, 0.0);
+
+  // Remove normalization.
+  sprite_position = floor(vec4(0.5, 0.5, 0.5, 0.5) + 255.0 * sprite_position);
+  sprite_direction = floor(vec4(0.5, 0.5, 0.5, 0.5) + 255.0 * sprite_direction);
+  sprite_score = floor(vec4(0.5, 0.5, 0.5, 0.5) + 255.0 * sprite_score);
 
   gl_Position = vec4(rectangle_vertex, 1.0);
   if (display_sprite_grid_indices.x == 1.0) {
     // I am the ball.
-    gl_Position.x = gl_Position.x + sprite_position.x + ${game_display_border_width}.0;
-    gl_Position.y = gl_Position.y + sprite_position.y - ${game_table_height_offset}.0;
+    gl_Position.x = gl_Position.x + sprite_position.x + ${game_display_border_width}.0 + (2.0*sprite_direction.x-1.0)*sprite_score.x;
+    gl_Position.y = gl_Position.y + sprite_position.y - ${game_table_height_offset}.0 + (2.0*sprite_direction.y-1.0)*sprite_direction.z * (sprite_score.x / ${game_ball_grade_width}.0);
   } else if (display_sprite_grid_indices.x == 0.0) {
     gl_Position.x = gl_Position.x * (${game_display_border_width}.0 - 1.0) + 1.0;
     gl_Position.y = gl_Position.y * (${game_paddle_height}.0 + 1.0) + sprite_position.y - ${game_table_height_offset}.0;
@@ -386,7 +400,7 @@ function main() {
     frame_count_odd = !frame_count_odd;
   }
   //document.addEventListener("mousedown", draw_cb);
-  window.setInterval(draw_cb, 100);
+  window.setInterval(draw_cb, 20);
 }
 
 
