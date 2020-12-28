@@ -1,18 +1,58 @@
 
 "use strict";
 
-// A 6x8 texture stores all sprite state data.
-// It represents a 3x4 grid of sprites, where each
+// A 6x2 texture stores all sprite state data.
+// It represents a 3x1 grid of sprites, where each
 // sprite's state is represented by a 2x2 square of pixels.
 const sprite_data_grid_width = 3;
-const sprite_data_grid_height = 4;
+const sprite_data_grid_height = 1;
 const sprite_data_point_size = 2;
+
+const game_table_width = 201;
+const game_table_height = 101;
+const game_paddle_height = 61;
+const game_table_height_offse; = 50;
+const game_ball_grade_width = 2;  // Number of steps per integer reposition.
+
+const game_display_border_width = 10;
+
+// L L B B R R
+// L L B B R R
+const sprite_data_texture = [
+  //// ROW 0 (bottom) ////
+  // Left Paddle.
+  0, game_table_height_offset + (game_table_height - 1) / 2, 0, 255,  // Paddle starts at middle.
+  0, 0, 0, 255,  // Paddle not moving.
+
+  // Ball.
+  (game_table_width - 1)/2, game_table_height_offset + (game_table_height - 1) / 2, 0, 255,  // Ball starts in middle.
+  0, 1, 5, 255,  // Ball moving left and up at 5 pixels per 10 horizontal.
+
+  // Right Paddle.
+  0, game_table_height_offset + (game_table_height - 1) / 2, 0, 255,  // Paddle starts at middle.
+  0, 0, 0, 255,  // Paddle not moving.
+
+  //// ROW 1 (top) ////
+  // Left Paddle.
+  0, 0, 0, 255,  // Score is 0.
+  0, 0, 0, 255,
+
+  // Ball.
+  0, 0, 0, 255,  // Step remainder.
+  0, 0, 0, 255,
+
+  // Right Paddle.
+  0, 0, 0, 255,  // Score is 0.
+  0, 0, 0, 255,
+];
+
 
 const vertex_shader_text = `
 attribute vec3 grid_indices;
 uniform sampler2D data_texture;
-varying vec4 display_color;
-varying vec4 texture_uv_encoded;
+varying vec4 sprite_position;
+varying vec4 sprite_direction;
+varying vec4 sprite_score;
 
 void main() {
   // Scale by 2.0 and translate to fit in the [(-1,-1), (1,1)] view space.
@@ -24,31 +64,78 @@ void main() {
   // Each point renders to 4 pixels.
   gl_PointSize = ${sprite_data_point_size}.0;
 
-  vec2 index_uv = vec2(
+  // Position data is in the bottom left corner.
+  vec2 sprite_position_uv = vec2(
     (grid_indices.x + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_width}.0,
     (grid_indices.y + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_height}.0);
-  texture_uv_encoded = texture2DLod(data_texture, index_uv, 0.0);
-  vec2 texture_uv;
-  texture_uv.x = texture_uv_encoded.x / texture_uv_encoded.y;
-  texture_uv.y = texture_uv_encoded.z / texture_uv_encoded.w;
-  display_color = texture2DLod(data_texture, texture_uv, 0.0);
+  // Direction data is in the bottom right corner.
+  vec2 sprite_direction_uv = vec2(
+    (grid_indices.x + 1.5/${sprite_data_point_size}.0) / ${sprite_data_grid_width}.0,
+    (grid_indices.y + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_height}.0);
+  // Score is in the top left.
+  vec2 sprite_score_uv = vec2(
+    (grid_indices.x + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_width}.0,
+    (grid_indices.y + 1.5/${sprite_data_point_size}.0) / ${sprite_data_grid_height}.0);
+
+  sprite_position = texture2DLod(data_texture, sprite_position_uv, 0.0);
+  sprite_direction = texture2DLod(data_texture, sprite_direction_uv, 0.0);
+  sprite_score = texture2DLod(data_texture, sprite_score_uv, 0.0);
+
+  // Remove normalization.
+  sprite_position = floor(vec4(0.5, 0.5, 0.5, 0.5) + 255.0 * sprite_position);
+  sprite_direction = floor(vec4(0.5, 0.5, 0.5, 0.5) + 255.0 * sprite_direction);
+  sprite_score = floor(vec4(0.5, 0.5, 0.5, 0.5) + 255.0 * sprite_score);
+
+  if (grid_indices.x == 1.0) {
+    // I am the ball.
+    // This score is actually the remainder of movement.
+    sprite_score.x = sprite_score.x + 1.0;
+    if (sprite_score.x == ${game_ball_grade_width}.0) {
+      sprite_position.x = sprite_position.x + 1.0;
+      sprite_score.x = 0.0;
+
+      float y = sprite_position.y + (2.0*sprite_direction.y-1.0)*sprite_direction.z;
+      if (y <= ${game_table_height_offset}.0) {
+        sprite_direction.y = 1.0 - sprite_direction.y;
+        sprite_position.y = 2.0 * ${game_table_height_offset}.0 - sprite_position.y;
+      }
+      if (y >= ${game_table_height_offset}.0 + ${game_table_height}.0) {
+        sprite_direction.y = 1.0 - sprite_direction.y;
+        sprite_position.y = 2.0 * (${game_table_height_offset}.0 + ${game_table_height}.0) - sprite_position.y;
+      }
+
+      sprite_position.x = sprite_position.x + (2.0*sprite_direction.x-1.0)*${game_ball_grade_width}.0;
+      sprite_position.y = sprite_position.y + (2.0*sprite_direction.y-1.0)*sprite_direction.z;
+
+      if (sprite_position.x == 0.0) {
+        sprite_direction.x = 1.0 - sprite_direction.x;
+      }
+      if (sprite_position.x == ${game_table_width}.0 - 1.0) {
+        sprite_direction.x = 1.0 - sprite_direction.x;
+      }
+    }
+  }
 }
 `
 
 const fragment_shader_text = `
 precision highp float;
-varying vec4 display_color;
-varying vec4 texture_uv_encoded;
+varying vec4 sprite_position;
+varying vec4 sprite_direction;
+varying vec4 sprite_score;
 void main() {
   if (gl_PointCoord.y < 0.5) {
-    // Clear the top half of each pixel.
-    // Yes, gl_PointCoord.y == 0 is the top of the point. Go figure.
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    // gl_PointCoord.y == 0 is the top of the point. Go figure.
+    if (gl_PointCoord.x < 0.5) {
+      gl_FragColor = sprite_score / 255.0;
+    } else {
+      gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    }
   } else {
     if (gl_PointCoord.x < 0.5) {
-      gl_FragColor = texture_uv_encoded;
+      gl_FragColor = sprite_position / 255.0;
     } else {
-      gl_FragColor = display_color;
+      gl_FragColor = sprite_direction / 255.0;
     }
   }
 }
@@ -56,29 +143,36 @@ void main() {
 
 const display_vertex_shader_text = `
 attribute vec3 rectangle_vertex;
-attribute vec2 rectangle_sprite_data_uv;
-varying vec2 sprite_data_uv;
+attribute vec2 display_sprite_grid_indices;
+uniform sampler2D sprite_data_texture;
 void main() {
+  vec2 sprite_position_uv = vec2(
+    (display_sprite_grid_indices.x + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_width}.0,
+    (display_sprite_grid_indices.y + 0.5/${sprite_data_point_size}.0) / ${sprite_data_grid_height}.0);
+  vec4 sprite_position = floor(vec4(0.5,0.5,0.5,0.5) + 255.0 * texture2DLod(sprite_data_texture, sprite_position_uv, 0.0));
+
   gl_Position = vec4(rectangle_vertex, 1.0);
-  sprite_data_uv = rectangle_sprite_data_uv;
+  if (display_sprite_grid_indices.x == 1.0) {
+    // I am the ball.
+    gl_Position.x = gl_Position.x + sprite_position.x + ${game_display_border_width}.0;
+    gl_Position.y = gl_Position.y + sprite_position.y - ${game_table_height_offset}.0;
+  } else if (display_sprite_grid_indices.x == 0.0) {
+    gl_Position.x = gl_Position.x * ${game_display_border_width}.0;
+    gl_Position.y = gl_Position.y * ${game_paddle_height}.0/2.0 + sprite_position.y - ${game_table_height_offset}.0;
+  } else {
+    gl_Position.x = gl_Position.x * ${game_display_border_width}.0 + ${game_table_width}.0 + ${game_display_border_width}.0;
+    gl_Position.y = gl_Position.y * ${game_paddle_height}.0/2.0 + sprite_position.y - ${game_table_height_offset}.0;
+  }
+  gl_Position.x = 2.0 * gl_Position.x / (${game_table_width}.0 + 2.0*${game_display_border_width}.0) - 1.0;
+  gl_Position.y = 2.0 * gl_Position.y / (${game_table_height}.0 + 1.0) - 1.0;
 }
 `
 
 const display_fragment_shader_text = `
 precision highp float;
-uniform sampler2D sprite_data_texture;
-varying vec2 sprite_data_uv;
 
 void main() {
-  vec2 index_uv = sprite_data_uv;
-  if (false) {
-    // We could just display the sprite colors.
-    vec2 grid_dimensions = vec2(${sprite_data_grid_width}.0, ${sprite_data_grid_height}.0);
-    index_uv = floor(index_uv * grid_dimensions);
-    index_uv += vec2(0.75, 0.25);
-    index_uv /= grid_dimensions;
-  }
-  gl_FragColor = texture2D(sprite_data_texture, index_uv, 0.0);
+  gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
 }
 `
 
@@ -100,9 +194,6 @@ function main() {
   // Define and store geometry.
   const vertices = [
     0.0, 0.0, 0.0,  1.0, 0.0, 0.0,  2.0, 0.0, 0.0,
-    0.0, 1.0, 0.0,  1.0, 1.0, 0.0,  2.0, 1.0, 0.0,
-    0.0, 2.0, 0.0,  1.0, 2.0, 0.0,  2.0, 2.0, 0.0,
-    0.0, 3.0, 0.0,  1.0, 3.0, 0.0,  2.0, 3.0, 0.0,
   ];
 
   // Create a buffer object and store vertices.
@@ -113,26 +204,30 @@ function main() {
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
   // Reference 2d vertices for a rectangle.
-  const single_rectangle_x = [1.0, 0.0, 0.0, 0.0, 1.0, 1.0];
-  const single_rectangle_y = [1.0, 1.0, 0.0, 0.0, 0.0, 1.0];
-  const points_per_rectangle = single_rectangle_x.length;
+  const single_rectangle_vertices = [
+    1.0, 1.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    1.0, 0.0, 0.0,
+    1.0, 1.0, 0.0,
+  ];
 
   const rectangle_vertices = new Array(
-    3 * points_per_rectangle *
-    sprite_data_grid_width * sprite_data_grid_height);
-  const sprite_data_uvs = new Array(rectangle_vertices.length / 3 * 2);
+    single_rectangle_vertices.length * sprite_data_grid_width * sprite_data_grid_height);
 
+  for (let i = 0; i < rectangle_vertices.length; ++i) {
+    rectangle_vertices[i] = single_rectangle_vertices[i % single_rectangle_vertices.length];
+  }
+
+  const points_per_rectangle = single_rectangle_vertices.length / 3;
+  const sprite_data_uvs = new Array(rectangle_vertices.length / 3 * 2);
   for (let i = 0; i < sprite_data_grid_height; ++i) {
     for (let j = 0; j < sprite_data_grid_width; ++j) {
-      let point_offset = (i * sprite_data_grid_width + j) * points_per_rectangle;
+      const point_offset = (i * sprite_data_grid_width + j) * points_per_rectangle;
       for (let k = 0; k < points_per_rectangle; ++k) {
-        let x = (j + single_rectangle_x[k]) / sprite_data_grid_width;
-        let y = (i + single_rectangle_y[k]) / sprite_data_grid_height;
-        sprite_data_uvs[2*(point_offset+k)] = x;
-        sprite_data_uvs[2*(point_offset+k)+1] = y;
-        rectangle_vertices[3*(point_offset+k)] = x * 2.0 - 1.0;
-        rectangle_vertices[3*(point_offset+k)+1] = y * 2.0 - 1.0;
-        rectangle_vertices[3*(point_offset+k)+2] = 0.0;
+        sprite_data_uvs[2*(point_offset+k)] = j;
+        sprite_data_uvs[2*(point_offset+k)+1] = i;
       }
     }
   }
@@ -152,44 +247,13 @@ function main() {
 
   /*========== Texture ===========*/
 
-  // Create input texture.
-  const texture_data = [
-      7,  12,   1,  16,   255,   0,   0, 255,  // Bottom left. Red. Looks right (7/12,1/16).
-     11,  12,   1,  16,     0, 255,   0, 255,  // Bottom middle. Green. Looks right (11/12,1/16).
-     11,  12,   5,  16,     0,   0, 255, 255,  // Bottom right. Blue. Looks up (11/12,5/16).
-    255, 255, 255, 255,   255, 255, 255, 255,
-    255, 255, 255, 255,   255, 255, 255, 255,
-    255, 255, 255, 255,   255, 255, 255, 255,
-
-      3,  12,   1,  16,   255,   0,   0, 255,  // Looks down.
-      7,  12,   5,  16,   127, 127, 127, 255,  // Looks at self.
-     11,  12,   9,  16,     0,   0, 255, 255,  // Looks up.
-    255, 255, 255, 255,   255, 255, 255, 255,
-    255, 255, 255, 255,   255, 255, 255, 255,
-    255, 255, 255, 255,   255, 255, 255, 255,
-
-      3,  12,   5,  16,     0, 255, 255, 255,  // Looks down.
-      7,  12,   9,  16,   191, 191, 191, 255,  // Looks at self.
-     11,  12,  13,  16,   255, 255,   0, 255,  // Looks up.
-    255, 255, 255, 255,   255, 255, 255, 255,
-    255, 255, 255, 255,   255, 255, 255, 255,
-    255, 255, 255, 255,   255, 255, 255, 255,
-
-      3,  12,   9,  16,     0, 255, 255, 255,  // Top left. Cyan. Looks down.
-      3,  12,  13,  16,   255,   0, 255, 255,  // Top middle. Magenta. Looks left.
-      7,  12,  13,  16,   255, 255,   0, 255,  // Top right. Yellow. Looks left.
-    255, 255, 255, 255,   255, 255, 255, 255,
-    255, 255, 255, 255,   255, 255, 255, 255,
-    255, 255, 255, 255,   255, 255, 255, 255,
-  ];
-
   var data_texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, data_texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
     sprite_data_grid_width * sprite_data_point_size,
     sprite_data_grid_height * sprite_data_point_size,
     0, gl.RGBA, gl.UNSIGNED_BYTE,
-    new Uint8Array(texture_data));
+    new Uint8Array(sprite_data_texture));
 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -262,7 +326,7 @@ function main() {
   gl.attachShader(display_shader_program, display_fragment_shader);
 
   gl.bindAttribLocation(display_shader_program, 0, "rectangle_vertex");
-  gl.bindAttribLocation(display_shader_program, 1, "rectangle_sprite_data_uv");
+  gl.bindAttribLocation(display_shader_program, 1, "display_sprite_grid_indices");
 
   // Link both the programs and use them.
   gl.linkProgram(display_shader_program);
@@ -370,7 +434,7 @@ function draw_to_screen(canvas, gl, display_shader_program,
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.enable(gl.DEPTH_TEST);
   gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(1.0, 1.0, 1.0, 1.0);
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
   // Switch shader program and attribute array 0.
