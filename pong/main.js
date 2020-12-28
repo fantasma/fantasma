@@ -8,28 +8,28 @@ const sprite_data_grid_width = 3;
 const sprite_data_grid_height = 1;
 const sprite_data_point_size = 2;
 
-const game_table_width = 201;
-const game_table_height = 101;
-const game_paddle_height = 61;
+const game_table_width = 101;
+const game_table_height = 51;
+const game_paddle_height = 15;
 const game_table_height_offset = 50;
-const game_ball_grade_width = 2;  // Number of steps per integer reposition.
+const game_ball_grade_width = 5;  // Number of steps per integer reposition.
 
-const game_display_border_width = 10;
+const game_display_border_width = 2;
 
 // L L B B R R
 // L L B B R R
 const sprite_data_texture = [
   //// ROW 0 (bottom) ////
   // Left Paddle.
-  0, game_table_height_offset + (game_table_height - 1) / 2, 0, 255,  // Paddle starts at middle.
+  0, game_table_height_offset + (game_table_height - game_paddle_height) / 2, 0, 255,  // Paddle starts at middle.
   0, 0, 0, 255,  // Paddle not moving.
 
   // Ball.
   (game_table_width - 1)/2, game_table_height_offset + (game_table_height - 1) / 2, 0, 255,  // Ball starts in middle.
-  0, 1, 5, 255,  // Ball moving left and up at 5 pixels per 10 horizontal.
+  1, 1, 5, 255,  // Ball moving left and up at 5 pixels per 10 horizontal.
 
   // Right Paddle.
-  0, game_table_height_offset + (game_table_height - 1) / 2, 0, 255,  // Paddle starts at middle.
+  0, game_table_height_offset + (game_table_height - game_paddle_height) / 2, 0, 255,  // Paddle starts at middle.
   0, 0, 0, 255,  // Paddle not moving.
 
   //// ROW 1 (top) ////
@@ -91,7 +91,6 @@ void main() {
     // This score is actually the remainder of movement.
     sprite_score.x = sprite_score.x + 1.0;
     if (sprite_score.x == ${game_ball_grade_width}.0) {
-      sprite_position.x = sprite_position.x + 1.0;
       sprite_score.x = 0.0;
 
       float y = sprite_position.y + (2.0*sprite_direction.y-1.0)*sprite_direction.z;
@@ -99,9 +98,9 @@ void main() {
         sprite_direction.y = 1.0 - sprite_direction.y;
         sprite_position.y = 2.0 * ${game_table_height_offset}.0 - sprite_position.y;
       }
-      if (y >= ${game_table_height_offset}.0 + ${game_table_height}.0) {
+      if (y >= ${game_table_height_offset}.0 + ${game_table_height}.0 - 1.0) {
         sprite_direction.y = 1.0 - sprite_direction.y;
-        sprite_position.y = 2.0 * (${game_table_height_offset}.0 + ${game_table_height}.0) - sprite_position.y;
+        sprite_position.y = 2.0 * (${game_table_height_offset}.0 + ${game_table_height}.0 - 1.0) - sprite_position.y;
       }
 
       sprite_position.x = sprite_position.x + (2.0*sprite_direction.x-1.0)*${game_ball_grade_width}.0;
@@ -157,14 +156,14 @@ void main() {
     gl_Position.x = gl_Position.x + sprite_position.x + ${game_display_border_width}.0;
     gl_Position.y = gl_Position.y + sprite_position.y - ${game_table_height_offset}.0;
   } else if (display_sprite_grid_indices.x == 0.0) {
-    gl_Position.x = gl_Position.x * ${game_display_border_width}.0;
-    gl_Position.y = gl_Position.y * ${game_paddle_height}.0/2.0 + sprite_position.y - ${game_table_height_offset}.0;
+    gl_Position.x = gl_Position.x * (${game_display_border_width}.0 - 1.0) + 1.0;
+    gl_Position.y = gl_Position.y * (${game_paddle_height}.0 + 1.0) + sprite_position.y - ${game_table_height_offset}.0;
   } else {
-    gl_Position.x = gl_Position.x * ${game_display_border_width}.0 + ${game_table_width}.0 + ${game_display_border_width}.0;
-    gl_Position.y = gl_Position.y * ${game_paddle_height}.0/2.0 + sprite_position.y - ${game_table_height_offset}.0;
+    gl_Position.x = gl_Position.x * (${game_display_border_width}.0 - 1.0) + ${game_table_width}.0 + ${game_display_border_width}.0;
+    gl_Position.y = gl_Position.y * (${game_paddle_height}.0 + 1.0) + sprite_position.y - ${game_table_height_offset}.0;
   }
   gl_Position.x = 2.0 * gl_Position.x / (${game_table_width}.0 + 2.0*${game_display_border_width}.0) - 1.0;
-  gl_Position.y = 2.0 * gl_Position.y / (${game_table_height}.0 + 1.0) - 1.0;
+  gl_Position.y = 2.0 * gl_Position.y / ${game_table_height}.0 - 1.0;
 }
 `
 
@@ -386,7 +385,8 @@ function main() {
 
     frame_count_odd = !frame_count_odd;
   }
-  document.addEventListener("mousedown", draw_cb);
+  //document.addEventListener("mousedown", draw_cb);
+  window.setInterval(draw_cb, 100);
 }
 
 
