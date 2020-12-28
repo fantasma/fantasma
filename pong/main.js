@@ -11,7 +11,7 @@ const sprite_data_point_size = 2;
 const game_table_width = 201;
 const game_table_height = 101;
 const game_paddle_height = 61;
-const game_table_height_offse; = 50;
+const game_table_height_offset = 50;
 const game_ball_grade_width = 2;  // Number of steps per integer reposition.
 
 const game_display_border_width = 10;
