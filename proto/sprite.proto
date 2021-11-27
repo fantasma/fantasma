@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package fantasma;
+
+message SpriteLinkVariable {
+  string name = 1;
+  uint32 type_id = 3;
+}
+
+message SpriteLink {
+  string name = 1;
+  repeated SpriteLinkVariable exposes = 4;
+  repeated SpriteLinkVariable remotes = 5;
+}
+
+message SpriteLinkVariableRef {
+  uint32 id = 1;
+  uint32 link_id = 2;
+  bool remote = 3;
+}
+
+enum SpriteBuiltinFunction {
+  BUILTIN_IDENTITY = 0;
+  BUILTIN_NOT = 1;
+  BUILTIN_AND = 2;
+  BUILTIN_OR  = 3;
+  BUILTIN_IMP = 4;
+  BUILTIN_ADD = 5;
+  BUILTIN_SUB = 6;
+  BUILTIN_MUL = 7;
+  BUILTIN_MOD = 8;
+  BUILTIN_DIV = 9;
+}
+
+message SpriteExpression {
+  repeated string comments = 2;
+  uint32 type_id = 3;
+  repeated SpriteExpression args = 4;
+
+  oneof op {
+    // Variable or Function.
+    string name = 1;
+    // Variable that persists after this step.
+    SpriteLinkVariableRef link_variable = 5;
+    // Variable defined in the local scope.
+    uint32 frame_variable_id = 6;
+    // More operations.
+    SpriteBuiltinFunction builtin_function = 7;
+  }
+}
+
+message SpriteStatement {
+  string name = 1;
+  repeated string comments = 2;
+  uint32 type_id = 3;
+  repeated SpriteExpression args = 4;
+
+  oneof op {
+    bool declare_frame_variable = 5;
+    // assign_link_variable
+    // declare_frame_variable
+    // assign_frame_variable
+  }
+}
+
+message SpriteMethod {
+  string name = 1;
+  repeated string comments = 2;
+  repeated SpriteStatement statements = 5;
+}
+
+message Sprite {
+  string name = 1;
+  repeated string comments = 2;
+  reserved 3;
+  SpriteLink links = 4;
+  // First method is the per-frame one.
+  repeated SpriteMethod methods = 5;
+}
+
