@@ -12,7 +12,7 @@ infilename="$1"
 outfilename="$2"
 
 if [ -z "$infilename" -o -z "$outfilename" ]; then
-  echo 'Usage: lisp2textproto.sh {input.pb.lisp} {output.textproto}' >&2
+  echo 'Usage: lisp2textproto.sh {input.sxproto} {output.textproto}' >&2
   exit 1
 fi
 
